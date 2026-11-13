@@ -342,6 +342,9 @@
 
         <!-- Store Owner Footnote -->
         <div class="p-3.5 border-t border-emerald-500/15 bg-black/30 space-y-2">
+          <button type="button" onclick="openSupabaseModal()" class="w-full py-2 px-2.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/30 text-[11px] font-bold text-amber-300 flex items-center justify-center gap-1.5 transition-all shadow">
+            <span>⚡ Database Schema & SQL Setup</span>
+          </button>
           <button onclick="resetDataToDefaults()" class="w-full py-1.5 px-2 rounded-lg bg-black/40 hover:bg-rose-950/50 border border-emerald-500/20 text-[10px] text-emerald-400 hover:text-rose-300 transition-colors flex items-center justify-center gap-1.5">
             <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
             <span>I-reset ang Data sa Default</span>
@@ -543,6 +546,10 @@
               <p class="text-xs text-emerald-400/80">I-monitor ang dami ng stock, expiration date, at magdagdag ng supply.</p>
             </div>
             <div class="flex items-center gap-2">
+              <button type="button" onclick="refreshLiveSupabaseInventory()" id="btn-inventory-refresh" title="I-sync at i-refresh ang imbentaryo mula sa live Supabase" class="px-3 py-2 rounded-xl text-xs font-bold bg-black/40 hover:bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 flex items-center gap-1.5 shadow transition-all">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">Live Supabase Sync</span>
+              </button>
               <button onclick="openAddFruitModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-2 w-fit shadow">
                 <i data-lucide="plus-circle" class="w-4 h-4"></i>
                 <span>Magdagdag ng Bagong Prutas</span>
@@ -1062,9 +1069,15 @@
   <div id="modal-restock" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
     <div class="wood-card w-full max-w-md rounded-3xl p-6 border border-emerald-500/30 space-y-4">
       <div class="flex items-center justify-between pb-3 border-b border-emerald-500/20">
-        <h3 class="font-bold text-sm text-white font-display flex items-center gap-2">
-          <i data-lucide="package-plus" class="w-4 h-4 text-emerald-400"></i> Restock ng Prutas
-        </h3>
+        <div>
+          <h3 class="font-bold text-sm text-white font-display flex items-center gap-2">
+            <i data-lucide="package-plus" class="w-4 h-4 text-emerald-400"></i> Restock ng Prutas
+          </h3>
+          <p class="text-[10px] text-emerald-400/80 flex items-center gap-1 mt-0.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Naka-sync sa Supabase Cloud (<span class="font-mono text-amber-300">inventory</span> table)</span>
+          </p>
+        </div>
         <button onclick="closeModal('modal-restock')" class="p-1.5 rounded-lg bg-black/40 text-slate-400 hover:text-white">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
@@ -1074,14 +1087,20 @@
         <input type="hidden" id="restock-fruit-sku" value="">
 
         <div class="p-3 rounded-xl bg-black/40 border border-emerald-500/20 space-y-1">
-          <div class="text-xs text-emerald-400">Prutas na Ida-dagdag:</div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-emerald-400">Prutas na Ida-dagdag:</span>
+            <span id="restock-live-status-pill" class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">⚡ Live Supabase</span>
+          </div>
           <div class="font-bold text-white text-sm" id="restock-fruit-display-name">Fuji Apple</div>
-          <div class="text-[11px] text-amber-300 font-mono" id="restock-fruit-display-stock">Kasalukuyang Stock: 35 kilo</div>
+          <div class="flex items-center justify-between text-[11px] font-mono">
+            <span class="text-amber-300" id="restock-fruit-display-stock">Kasalukuyang Stock: 35 kilo</span>
+            <span class="text-emerald-400 font-bold" id="restock-fruit-projected-stock">Magiging: 50 kilo</span>
+          </div>
         </div>
 
         <div>
           <label class="block text-xs font-semibold text-emerald-300 mb-1">Dagdag na Dami (Kilo / Tub)</label>
-          <input type="number" id="restock-qty-input" required min="1" value="10" class="w-full bg-black/50 border border-emerald-500/30 rounded-xl py-2 px-3 text-xs text-white font-mono focus:outline-none focus:border-amber-400">
+          <input type="number" id="restock-qty-input" required min="1" value="10" oninput="updateRestockProjected()" class="w-full bg-black/50 border border-emerald-500/30 rounded-xl py-2 px-3 text-xs text-white font-mono focus:outline-none focus:border-amber-400">
         </div>
 
         <div>
@@ -1096,9 +1115,9 @@
           <input type="date" id="restock-expiry-input" class="w-full bg-black/50 border border-emerald-500/30 rounded-xl py-2 px-3 text-xs text-white font-mono focus:outline-none focus:border-amber-400">
         </div>
 
-        <button type="submit" class="w-full py-3 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all flex items-center justify-center gap-2 mt-2">
+        <button type="submit" id="restock-submit-btn" class="w-full py-3 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all flex items-center justify-center gap-2 mt-2">
           <i data-lucide="check" class="w-4 h-4"></i>
-          <span>Kumpirmahin ang Restock</span>
+          <span id="restock-submit-label">Kumpirmahin ang Restock sa Supabase</span>
         </button>
       </form>
     </div>
@@ -1369,6 +1388,7 @@
       'edit': '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
       'building': '<rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>',
       'user': '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+      'refresh-cw': '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
       'phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>'
     };
 
@@ -1544,7 +1564,9 @@
         if (fetchedAny) {
           isSupabaseOnline = true;
           updateSupabaseBadges(true, "Cloud Database Live & Synced");
+          saveAllData();
           renderAllViews();
+          initSupabaseRealtime();
         }
       } catch (err) {
         console.warn("Supabase fetch notice:", err);
@@ -1552,8 +1574,48 @@
       return fetchedAny;
     }
 
+    let realtimeChannel = null;
+
+    function initSupabaseRealtime() {
+      if (!supabaseClient || realtimeChannel) return;
+      try {
+        realtimeChannel = supabaseClient
+          .channel('public:inventory_changes')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'inventory' },
+            (payload) => {
+              console.log('⚡ Supabase Realtime inventory update:', payload);
+              if (payload.eventType === 'UPDATE' && payload.new) {
+                const item = inventoryState.find(f => f.sku === payload.new.sku);
+                if (item) {
+                  item.stock = Number(payload.new.stock);
+                  if (payload.new.expiry_date) item.expiry = payload.new.expiry_date;
+                  if (payload.new.price) item.price = Number(payload.new.price);
+                  if (payload.new.name) item.name = payload.new.name;
+                  saveAllData();
+                  renderFruitGrid();
+                  renderInventoryTable();
+                  updateKPISummaries();
+                } else {
+                  fetchSupabaseData();
+                }
+              } else if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+                fetchSupabaseData();
+              }
+            }
+          )
+          .subscribe((status, err) => {
+            if (err) console.warn("Supabase Realtime subscribe notice:", err);
+            else console.log("⚡ Supabase Realtime channel state:", status);
+          });
+      } catch (e) {
+        console.warn("Supabase Realtime notice:", e);
+      }
+    }
+
     async function syncFruitToSupabase(fruit, isUpdate = false) {
-      if (!supabaseClient) return;
+      if (!supabaseClient || !fruit) return;
       try {
         const payload = {
           sku: fruit.sku,
@@ -1561,7 +1623,9 @@
           category: fruit.category,
           price: fruit.price,
           stock: fruit.stock,
-          expiry_date: fruit.expiry
+          expiry_date: fruit.expiry || 'N/A',
+          icon: fruit.icon || '🍎',
+          updated_at: new Date().toISOString()
         };
         if (isUpdate) {
           await supabaseClient.from('inventory').update(payload).eq('sku', fruit.sku);
@@ -1585,9 +1649,72 @@
     async function syncStockToSupabase(sku, newStock) {
       if (!supabaseClient) return;
       try {
-        await supabaseClient.from('inventory').update({ stock: newStock }).eq('sku', sku);
+        await supabaseClient.from('inventory').update({ 
+          stock: Number(newStock),
+          updated_at: new Date().toISOString()
+        }).eq('sku', sku);
       } catch (err) {
         console.warn("Supabase stock update notice:", err);
+      }
+    }
+
+    async function syncRestockToSupabase(fruit, addQty, supplier, newExpiry) {
+      if (!supabaseClient) {
+        console.warn("Supabase client hindi pa connected; nakatago muna nang lokal.");
+        return { success: false, reason: 'offline' };
+      }
+
+      try {
+        const updatePayload = {
+          stock: Number(fruit.stock),
+          updated_at: new Date().toISOString()
+        };
+        if (fruit.expiry && fruit.expiry !== 'N/A') {
+          updatePayload.expiry_date = fruit.expiry;
+        }
+
+        const { data, error } = await supabaseClient
+          .from('inventory')
+          .update(updatePayload)
+          .eq('sku', fruit.sku)
+          .select();
+
+        if (error) {
+          console.error("Supabase live restock update error:", error);
+          return { success: false, error };
+        }
+
+        if (data && data.length > 0) {
+          const updatedRow = data[0];
+          fruit.stock = Number(updatedRow.stock);
+          if (updatedRow.expiry_date) fruit.expiry = updatedRow.expiry_date;
+          console.log(`⚡ Supabase Live Restock SUCCESS for [${fruit.sku} ${fruit.name}]: new stock = ${fruit.stock}`);
+          return { success: true, data: updatedRow };
+        } else {
+          // Fallback if SKU was not in Supabase yet; insert it!
+          const { data: insData, error: insErr } = await supabaseClient
+            .from('inventory')
+            .insert([{
+              sku: fruit.sku,
+              name: fruit.name,
+              category: fruit.category,
+              price: fruit.price,
+              stock: fruit.stock,
+              expiry_date: fruit.expiry || 'N/A',
+              icon: fruit.icon || '🍎'
+            }])
+            .select();
+
+          if (insErr) {
+            console.error("Supabase insert error during restock:", insErr);
+            return { success: false, error: insErr };
+          }
+          console.log(`⚡ Supabase inserted & restocked [${fruit.sku} ${fruit.name}]`);
+          return { success: true, data: insData ? insData[0] : null };
+        }
+      } catch (err) {
+        console.error("Supabase syncRestockToSupabase exception:", err);
+        return { success: false, error: err };
       }
     }
 
@@ -2677,13 +2804,14 @@
       const expiry = document.getElementById('fruit-expiry-input').value;
       const icon = document.getElementById('fruit-icon-input').value.trim() || '🍎';
 
+      let fruitData = null;
       if (mode === 'add') {
         if (inventoryState.some(f => f.sku === sku)) {
           showToast(`Mayroon nang prutas na may Barcode/SKU na ${sku}!`, true);
           return;
         }
-        const newFruit = { id: 'f-' + Date.now(), sku, name, category, price, stock, expiry, icon };
-        inventoryState.push(newFruit);
+        fruitData = { id: 'f-' + Date.now(), sku, name, category, price, stock, expiry, icon };
+        inventoryState.push(fruitData);
         addAuditLog("Imbentaryo", `Nagdagdag ng bagong prutas: ${name} (${sku})`);
         showToast(`Naidagdag ang ${name}!`);
       } else {
@@ -2697,13 +2825,16 @@
           target.stock = stock;
           target.expiry = expiry;
           target.icon = icon;
+          fruitData = target;
           addAuditLog("Imbentaryo", `Na-update ang prutas: ${name} (Stock: ${stock}, Presyo: ₱${price.toFixed(2)})`);
           showToast(`Na-update ang ${name}!`);
         }
       }
 
       saveAllData();
-      syncFruitToSupabase(fruit, mode === 'edit');
+      if (fruitData) {
+        syncFruitToSupabase(fruitData, mode === 'edit');
+      }
       renderFruitGrid();
       renderInventoryTable();
       updateKPISummaries();
@@ -2725,7 +2856,7 @@
       }
     }
 
-    // --- 11. Restock Operations ---
+    // --- 11. Restock Operations (Live Supabase Connected) ---
     function openRestockModal(sku) {
       const fruit = inventoryState.find(f => f.sku === sku);
       if (!fruit) return;
@@ -2733,30 +2864,83 @@
       document.getElementById('restock-fruit-sku').value = fruit.sku;
       document.getElementById('restock-fruit-display-name').innerText = `${fruit.icon || '🍎'} ${fruit.name}`;
       document.getElementById('restock-fruit-display-stock').innerText = `Kasalukuyang Stock: ${fruit.stock} kg/tub`;
-      document.getElementById('restock-qty-input').value = '15';
-      document.getElementById('restock-expiry-input').value = fruit.expiry;
+      
+      const qtyInput = document.getElementById('restock-qty-input');
+      if (qtyInput) qtyInput.value = '15';
+
+      updateProjectedStockDisplay(fruit.stock, 15);
+
+      const expInput = document.getElementById('restock-expiry-input');
+      if (expInput) {
+        expInput.value = (fruit.expiry && fruit.expiry !== 'N/A') ? fruit.expiry : '';
+      }
 
       // Populate supplier select
       const supSelect = document.getElementById('restock-supplier-select');
-      supSelect.innerHTML = suppliersState.map(s => `
-        <option value="${s.company}">${s.company} (${s.contact})</option>
-      `).join('');
+      if (supSelect) {
+        if (suppliersState && suppliersState.length > 0) {
+          supSelect.innerHTML = suppliersState.map(s => `
+            <option value="${s.company}">${s.company} (${s.contact})</option>
+          `).join('');
+        } else {
+          supSelect.innerHTML = `
+            <option value="Davao Golden Orchard Agri Supply">Davao Golden Orchard Agri Supply (Mang Jose)</option>
+            <option value="Benguet Highland Farm Harvest">Benguet Highland Farm Harvest (Aling Teresa)</option>
+            <option value="Manila Port Fruit Importers Co.">Manila Port Fruit Importers Co. (David Tan)</option>
+          `;
+        }
+      }
 
       document.getElementById('modal-restock').classList.remove('hidden');
       safeRenderIcons();
     }
 
-    function handleRestockSubmit(e) {
-      e.preventDefault();
+    function updateProjectedStockDisplay(currentStock, addQty) {
+      const projElem = document.getElementById('restock-fruit-projected-stock');
+      if (projElem) {
+        const total = (parseInt(currentStock) || 0) + (parseInt(addQty) || 0);
+        projElem.innerText = `Magiging: ${total} kg/tub (+${addQty})`;
+      }
+    }
+
+    function updateRestockProjected() {
+      const sku = document.getElementById('restock-fruit-sku').value;
+      const fruit = inventoryState.find(f => f.sku === sku);
+      const addQty = parseInt(document.getElementById('restock-qty-input').value) || 0;
+      if (fruit) {
+        updateProjectedStockDisplay(fruit.stock, addQty);
+      }
+    }
+
+    async function handleRestockSubmit(e) {
+      if (e && e.preventDefault) e.preventDefault();
+
       const sku = document.getElementById('restock-fruit-sku').value;
       const addQty = parseInt(document.getElementById('restock-qty-input').value) || 0;
-      const supplier = document.getElementById('restock-supplier-select').value;
-      const newExpiry = document.getElementById('restock-expiry-input').value;
+      const supplier = document.getElementById('restock-supplier-select')?.value || 'Bagsakan Supplier';
+      const newExpiry = document.getElementById('restock-expiry-input')?.value;
+
+      if (!sku) return;
+      if (addQty <= 0) {
+        showToast("Mangyaring maglagay ng tamang dami para sa restock (mas mataas sa 0).", true);
+        return;
+      }
 
       const fruit = inventoryState.find(f => f.sku === sku);
-      if (!fruit) return;
+      if (!fruit) {
+        showToast("Hindi natagpuan ang prutas sa imbentaryo.", true);
+        return;
+      }
 
-      fruit.stock += addQty;
+      // Button loading indicator
+      const submitBtn = document.getElementById('restock-submit-btn');
+      const submitLabel = document.getElementById('restock-submit-label');
+      if (submitBtn) submitBtn.disabled = true;
+      if (submitLabel) submitLabel.innerHTML = '<span class="inline-block animate-spin mr-1">🔄</span> Nirere-stock sa Supabase...';
+
+      // 1. Optimistic local state update
+      const prevStock = fruit.stock;
+      fruit.stock = prevStock + addQty;
       if (newExpiry) fruit.expiry = newExpiry;
 
       addAuditLog("Imbentaryo", `Nag-restock ng ${fruit.name} (+${addQty} kg) mula kay ${supplier}`);
@@ -2765,8 +2949,44 @@
       renderInventoryTable();
       updateKPISummaries();
 
+      // 2. Direct Live Supabase synchronization
+      let syncResult = null;
+      try {
+        syncResult = await syncRestockToSupabase(fruit, addQty, supplier, newExpiry);
+      } catch (syncErr) {
+        console.warn("Supabase restock sync catch:", syncErr);
+      }
+
+      // 3. Re-enable button and close modal
+      if (submitBtn) submitBtn.disabled = false;
+      if (submitLabel) submitLabel.innerText = 'Kumpirmahin ang Restock sa Supabase';
+
       closeModal('modal-restock');
-      showToast(`Matagumpay na na-restock ang ${fruit.name} (+${addQty} kg)!`);
+
+      // 4. Toast notification to user
+      if (syncResult && syncResult.success) {
+        showToast(`⚡ Matagumpay na na-restock sa Supabase: ${fruit.name} (+${addQty} kg)! Kasalukuyang Stock: ${fruit.stock} kg`);
+      } else {
+        showToast(`Matagumpay na na-restock: ${fruit.name} (+${addQty} kg)! (Lokal na na-save)`);
+      }
+    }
+
+    async function refreshLiveSupabaseInventory() {
+      const btn = document.getElementById('btn-inventory-refresh');
+      if (btn) btn.classList.add('opacity-70');
+      showToast("Kinukuha ang pinakabagong stock mula sa Supabase...");
+      try {
+        const ok = await fetchSupabaseData();
+        if (ok) {
+          showToast("⚡ Matagumpay na na-sync ang imbentaryo mula sa Supabase Live!");
+        } else {
+          showToast("Kasalukuyang gumagamit ng offline data.", true);
+        }
+      } catch(e) {
+        showToast("Hindi maabot ang Supabase sa ngayon.", true);
+      } finally {
+        if (btn) btn.classList.remove('opacity-70');
+      }
     }
 
     // --- 12. Suppliers Management CRUD ---
@@ -3310,6 +3530,7 @@
       // Deduct from fruit stock
       fruit.stock = Math.max(0, fruit.stock - Math.round(qty));
       totalSpoilageAmount += loss;
+      syncStockToSupabase(fruit.sku, fruit.stock);
 
       addAuditLog("Spoilage", `Naitalang nabulok: ${fruit.name} (-${qty} kg, Lugi: ₱${loss.toFixed(2)}) Dahilan: ${reason}`);
       saveAllData();
@@ -3551,6 +3772,7 @@ CREATE TABLE public.inventory (
     price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     stock INTEGER NOT NULL DEFAULT 0,
     expiry_date VARCHAR(50) DEFAULT 'N/A',
+    icon VARCHAR(50) DEFAULT '🍎',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -3575,14 +3797,16 @@ CREATE TABLE public.suppliers (
     contact_person VARCHAR(255) NOT NULL,
     phone VARCHAR(50) NOT NULL,
     category VARCHAR(100) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    status VARCHAR(50) NOT NULL DEFAULT 'Aktibo',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Seed Fruit Suppliers
-INSERT INTO public.suppliers (id, company_name, contact_person, phone, category) VALUES
-('sup-01', 'Davao Golden Orchard Agri Supply', 'Mang Jose Rodriguez', '0917-888-2341', 'Tropical Fruits'),
-('sup-02', 'Benguet Highland Farm Harvest', 'Aling Teresa Baguio', '0918-555-9012', 'Bananas and Berries'),
-('sup-03', 'Manila Port Fruit Importers Co.', 'David Tan', '0920-777-4433', 'Imported Fruits');
+INSERT INTO public.suppliers (id, company_name, contact_person, phone, category, status) VALUES
+('sup-01', 'Davao Golden Orchard Agri Supply', 'Mang Jose Rodriguez', '0917-888-2341', 'Tropical Fruits', 'Aktibo'),
+('sup-02', 'Benguet Highland Farm Harvest', 'Aling Teresa Baguio', '0918-555-9012', 'Bananas and Berries', 'Aktibo'),
+('sup-03', 'Manila Port Fruit Importers Co.', 'David Tan', '0920-777-4433', 'Imported Fruits', 'Aktibo');
 
 -- 4. SALES TRANSACTIONS TABLE
 DROP TABLE IF EXISTS public.transactions CASCADE;
@@ -3591,15 +3815,18 @@ CREATE TABLE public.transactions (
     ref_number VARCHAR(100) UNIQUE NOT NULL,
     payment_method VARCHAR(50) NOT NULL,
     items_summary TEXT NOT NULL,
+    items_json JSONB DEFAULT '[]'::JSONB,
     total_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     items_count INTEGER NOT NULL DEFAULT 1,
     processed_by VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'Completed',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Seed Initial Fruit Sale
-INSERT INTO public.transactions (id, ref_number, payment_method, items_summary, total_amount, items_count, processed_by) VALUES
-('trx-01', 'TRX-98214', 'Cash', 'Fuji Apple (x2 kg)', 320.00, 2, 'Blake Book');
+INSERT INTO public.transactions (id, ref_number, payment_method, items_summary, items_json, total_amount, items_count, processed_by, status) VALUES
+('trx-01', 'TRX-98214', 'Cash', 'Fuji Apple (x2 kg)', '[{"sku":"4801001","name":"Fuji Apple (Matamis, bawat kilo)","price":160,"qty":2}]'::JSONB, 320.00, 2, 'Blake Book', 'Completed')
+ON CONFLICT (ref_number) DO NOTHING;
 
 -- 5. HR & PAYROLL TABLE
 DROP TABLE IF EXISTS public.payroll CASCADE;
@@ -3611,7 +3838,8 @@ CREATE TABLE public.payroll (
     gross_salary NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     deductions NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     net_salary NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Seed Payroll Staff
@@ -3660,3 +3888,4 @@ ALTER TABLE public.system_logs DISABLE ROW LEVEL SECURITY;
 
 </body>
 </html>
+
